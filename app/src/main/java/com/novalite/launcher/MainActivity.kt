@@ -85,6 +85,7 @@ fun NovaLiteApp() {
     val ctx = LocalContext.current
     val pm = ctx.packageManager
     var apps by remember { mutableStateOf<List<AppEntry>>(emptyList()) }
+    var icons by remember { mutableStateOf<Map<String, Bitmap>>(emptyMap()) }
     var query by remember { mutableStateOf("") }
     var gameMode by remember { mutableStateOf(false) }
     var dock by remember { mutableStateOf(listOf<String>()) }
@@ -105,6 +106,15 @@ fun NovaLiteApp() {
                     }
                     .sortedBy { it.label.lowercase() }
                 apps = list
+
+                // 🖼️ Chargement TOUTES les icônes en une fois (en arrière-plan)
+                val iconMap = mutableMapOf<String, Bitmap>()
+                list.forEach { app ->
+                    loadAppIconBitmap(pm, app.resolveInfo)?.let {
+                        iconMap[app.pkg] = it
+                    }
+                }
+                icons = iconMap
             } catch (_: Exception) {}
 
             try {
@@ -195,14 +205,8 @@ fun NovaLiteApp() {
                 ) {
                     items(filtered.size, key = { filtered[it].pkg }) { i ->
                         val app = filtered[i]
-                        var icon by remember { mutableStateOf<Bitmap?>(null) }
+                        val icon = icons[app.pkg]
                         var showSheet by remember { mutableStateOf(false) }
-
-                        LaunchedEffect(app.pkg) {
-                            withContext(Dispatchers.IO) {
-                                icon = loadAppIconBitmap(pm, app.resolveInfo)
-                            }
-                        }
 
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -256,7 +260,7 @@ fun NovaLiteApp() {
                             ) {
                                 if (icon != null) {
                                     androidx.compose.foundation.Image(
-                                        bitmap = icon!!.asImageBitmap(),
+                                        bitmap = icon.asImageBitmap(),
                                         contentDescription = app.label,
                                         modifier = Modifier.size(40.dp),
                                         contentScale = androidx.compose.ui.layout.ContentScale.Fit
@@ -326,15 +330,7 @@ fun NovaLiteApp() {
                         repeat(7) { idx ->
                             val pkg = dock.getOrNull(idx)
                             val entry = apps.find { it.pkg == pkg }
-                            var dockIcon by remember(pkg) { mutableStateOf<Bitmap?>(null) }
-
-                            LaunchedEffect(pkg) {
-                                if (entry != null) {
-                                    withContext(Dispatchers.IO) {
-                                        dockIcon = loadAppIconBitmap(pm, entry.resolveInfo)
-                                    }
-                                }
-                            }
+                            val dockIcon = entry?.let { icons[it.pkg] }
 
                             if (entry != null) {
                                 Box(
@@ -349,7 +345,7 @@ fun NovaLiteApp() {
                                 ) {
                                     if (dockIcon != null) {
                                         androidx.compose.foundation.Image(
-                                            bitmap = dockIcon!!.asImageBitmap(),
+                                            bitmap = dockIcon.asImageBitmap(),
                                             contentDescription = entry.label,
                                             modifier = Modifier.size(38.dp),
                                             contentScale = androidx.compose.ui.layout.ContentScale.Fit

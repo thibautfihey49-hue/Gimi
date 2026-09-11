@@ -35,7 +35,6 @@ import kotlinx.coroutines.withContext
 
 val Context.dataStore by preferencesDataStore("nova_dock")
 
-// 📦 Données allégées — PAS de chargement immédiat des icônes
 data class AppEntry(
     val resolveInfo: ResolveInfo,
     val label: String,
@@ -51,7 +50,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// 🖼️ Chargement sécurisé de l'icône
 fun loadAppIconBitmap(pm: PackageManager, info: ResolveInfo): Bitmap? {
     return try {
         val drawable = info.loadIcon(pm)
@@ -60,26 +58,24 @@ fun loadAppIconBitmap(pm: PackageManager, info: ResolveInfo): Bitmap? {
             is AdaptiveIconDrawable -> {
                 val w = drawable.intrinsicWidth.coerceAtLeast(96)
                 val h = drawable.intrinsicHeight.coerceAtLeast(96)
-                val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bitmap)
+                val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
                 drawable.setBounds(0, 0, canvas.width, canvas.height)
                 drawable.draw(canvas)
-                bitmap
+                bmp
             }
             else -> {
                 val w = drawable.intrinsicWidth.coerceAtLeast(96)
                 val h = drawable.intrinsicHeight.coerceAtLeast(96)
-                val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bitmap)
+                val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
                 drawable.setBounds(0, 0, canvas.width, canvas.height)
                 drawable.draw(canvas)
-                bitmap
+                bmp
             }
         }
-        // Réduire la taille pour économiser mémoire
         Bitmap.createScaledBitmap(bitmap, 64, 64, false)
     } catch (e: Exception) {
-        android.util.Log.e("NOVA", "Erreur icône", e)
         null
     }
 }
@@ -87,17 +83,16 @@ fun loadAppIconBitmap(pm: PackageManager, info: ResolveInfo): Bitmap? {
 @Composable
 fun NovaLiteApp() {
     val ctx = LocalContext.current
+    val pm = ctx.packageManager
     var apps by remember { mutableStateOf<List<AppEntry>>(emptyList()) }
     var query by remember { mutableStateOf("") }
     var gameMode by remember { mutableStateOf(false) }
     var dock by remember { mutableStateOf(listOf<String>()) }
     val scope = rememberCoroutineScope()
 
-    // 📋 Chargement SÉCURISÉ — SANS icônes d'abord
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             try {
-                val pm = ctx.packageManager
                 val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
                 val list = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
                     .map { info ->
@@ -110,9 +105,7 @@ fun NovaLiteApp() {
                     }
                     .sortedBy { it.label.lowercase() }
                 apps = list
-            } catch (e: Exception) {
-                android.util.Log.e("NOVA", "Erreur chargement apps", e)
-            }
+            } catch (_: Exception) {}
 
             try {
                 ctx.dataStore.data.map { prefs ->
@@ -205,10 +198,9 @@ fun NovaLiteApp() {
                         var icon by remember { mutableStateOf<Bitmap?>(null) }
                         var showSheet by remember { mutableStateOf(false) }
 
-                        // 🖼️ Chargement PARESSEUX de l'icône — seulement quand visible
                         LaunchedEffect(app.pkg) {
                             withContext(Dispatchers.IO) {
-                                icon = loadAppIconBitmap(ctx.packageManager, app.resolveInfo)
+                                icon = loadAppIconBitmap(pm, app.resolveInfo)
                             }
                         }
 
@@ -250,7 +242,7 @@ fun NovaLiteApp() {
                                         }
                                     }
                                     try {
-                                        ctx.startActivity(ctx.packageManager.getLaunchIntentForPackage(app.pkg))
+                                        ctx.startActivity(pm.getLaunchIntentForPackage(app.pkg))
                                     } catch (_: Exception) {}
                                 },
                                 onLongClick = { showSheet = true }
@@ -339,7 +331,7 @@ fun NovaLiteApp() {
                             LaunchedEffect(pkg) {
                                 if (entry != null) {
                                     withContext(Dispatchers.IO) {
-                                        dockIcon = loadAppIconBitmap(ctx.packageManager, entry.resolveInfo)
+                                        dockIcon = loadAppIconBitmap(pm, entry.resolveInfo)
                                     }
                                 }
                             }
@@ -350,7 +342,7 @@ fun NovaLiteApp() {
                                         .size(44.dp)
                                         .clickable {
                                             try {
-                                                ctx.startActivity(ctx.packageManager.getLaunchIntentForPackage(entry.pkg))
+                                                ctx.startActivity(pm.getLaunchIntentForPackage(entry.pkg))
                                             } catch (_: Exception) {}
                                         },
                                     contentAlignment = Alignment.Center

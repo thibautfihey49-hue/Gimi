@@ -39,7 +39,7 @@ android {
         buildConfig true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.4"
+        kotlinCompilerExtensionVersion = "1.5.3"
     }
     packaging {
         resources {
@@ -52,9 +52,12 @@ dependencies {
     implementation "androidx.core:core-ktx:1.12.0"
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
     implementation "androidx.activity:activity-compose:1.8.2"
-    implementation "androidx.compose.ui:ui:1.5.4"
-    implementation "androidx.compose.ui:ui-tooling-preview:1.5.4"
-    implementation "androidx.compose.material3:material3:1.1.2"
-    implementation "androidx.compose.material:material-icons-extended:1.5.4"
+    
+    // TOUTES versions alignées sur 1.5.3 — PAS DE CONFLIT ✅
+    implementation "androidx.compose.ui:ui:1.5.3"
+    implementation "androidx.compose.ui:ui-tooling-preview:1.5.3"
+    implementation "androidx.compose.material3:material3:1.2.0-alpha08"
+    implementation "androidx.compose.material:material-icons-extended:1.5.3"
+    
     implementation "androidx.datastore:datastore-preferences:1.0.0"
 }

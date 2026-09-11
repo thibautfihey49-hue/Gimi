@@ -35,12 +35,12 @@ import kotlinx.coroutines.withContext
 
 val Context.dataStore by preferencesDataStore("nova_dock")
 
+// 📦 Données allégées — PAS de chargement immédiat des icônes
 data class AppEntry(
     val resolveInfo: ResolveInfo,
     val label: String,
     val pkg: String,
-    val isSystem: Boolean,
-    val icon: Bitmap?
+    val isSystem: Boolean
 )
 
 class MainActivity : ComponentActivity() {
@@ -51,27 +51,36 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-fun drawableToBitmap(drawable: Drawable): Bitmap? {
-    return when (drawable) {
-        is BitmapDrawable -> drawable.bitmap
-        is AdaptiveIconDrawable -> {
-            val w = drawable.intrinsicWidth.takeIf { it > 0 } ?: 96
-            val h = drawable.intrinsicHeight.takeIf { it > 0 } ?: 96
-            val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            drawable.setBounds(0, 0, canvas.width, canvas.height)
-            drawable.draw(canvas)
-            bitmap
+// 🖼️ Chargement sécurisé de l'icône
+fun loadAppIconBitmap(pm: PackageManager, info: ResolveInfo): Bitmap? {
+    return try {
+        val drawable = info.loadIcon(pm)
+        val bitmap: Bitmap = when (drawable) {
+            is BitmapDrawable -> drawable.bitmap
+            is AdaptiveIconDrawable -> {
+                val w = drawable.intrinsicWidth.coerceAtLeast(96)
+                val h = drawable.intrinsicHeight.coerceAtLeast(96)
+                val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bitmap)
+                drawable.setBounds(0, 0, canvas.width, canvas.height)
+                drawable.draw(canvas)
+                bitmap
+            }
+            else -> {
+                val w = drawable.intrinsicWidth.coerceAtLeast(96)
+                val h = drawable.intrinsicHeight.coerceAtLeast(96)
+                val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bitmap)
+                drawable.setBounds(0, 0, canvas.width, canvas.height)
+                drawable.draw(canvas)
+                bitmap
+            }
         }
-        else -> {
-            val w = drawable.intrinsicWidth.takeIf { it > 0 } ?: 96
-            val h = drawable.intrinsicHeight.takeIf { it > 0 } ?: 96
-            val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            drawable.setBounds(0, 0, canvas.width, canvas.height)
-            drawable.draw(canvas)
-            bitmap
-        }
+        // Réduire la taille pour économiser mémoire
+        Bitmap.createScaledBitmap(bitmap, 64, 64, false)
+    } catch (e: Exception) {
+        android.util.Log.e("NOVA", "Erreur icône", e)
+        null
     }
 }
 
@@ -84,31 +93,42 @@ fun NovaLiteApp() {
     var dock by remember { mutableStateOf(listOf<String>()) }
     val scope = rememberCoroutineScope()
 
+    // 📋 Chargement SÉCURISÉ — SANS icônes d'abord
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
-            val pm = ctx.packageManager
-            val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
-            val list = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-                .map { info ->
-                    val label = info.loadLabel(pm).toString()
-                    val pkg = info.activityInfo.packageName
-                    val isSys = (info.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-                    val icon = try { drawableToBitmap(info.loadIcon(pm)) } catch (_: Exception) { null }
-                    AppEntry(info, label, pkg, isSys, icon)
-                }
-                .sortedBy { it.label.lowercase() }
-            apps = list
-            ctx.dataStore.data.map { it[stringPreferencesKey("dock")]?.split(",") ?: listOf(
-                "com.android.dialer", "com.android.mms", "com.android.camera",
-                "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
-                "com.activision.callofduty.shooter"
-            ) }.collect { dock = it }
+            try {
+                val pm = ctx.packageManager
+                val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
+                val list = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
+                    .map { info ->
+                        val label = try { info.loadLabel(pm).toString() } catch (_: Exception) { "App" }
+                        val pkg = info.activityInfo.packageName
+                        val isSys = try {
+                            (info.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                        } catch (_: Exception) { false }
+                        AppEntry(info, label, pkg, isSys)
+                    }
+                    .sortedBy { it.label.lowercase() }
+                apps = list
+            } catch (e: Exception) {
+                android.util.Log.e("NOVA", "Erreur chargement apps", e)
+            }
+
+            try {
+                ctx.dataStore.data.map { prefs ->
+                    prefs[stringPreferencesKey("dock")]?.split(",") ?: listOf(
+                        "com.android.dialer", "com.android.mms", "com.android.camera",
+                        "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
+                        "com.activision.callofduty.shooter"
+                    )
+                }.collect { dock = it }
+            } catch (_: Exception) {}
         }
     }
 
     val filtered = remember(query, apps) {
         if (query.isBlank()) apps
-        else apps.filter { it.label.contains(query, true) }.take(30)
+        else apps.filter { it.label.contains(query, true, ignoreCase = true) }.take(30)
     }
 
     MaterialTheme(colorScheme = darkColorScheme(background = Color.Black)) {
@@ -182,7 +202,15 @@ fun NovaLiteApp() {
                 ) {
                     items(filtered.size, key = { filtered[it].pkg }) { i ->
                         val app = filtered[i]
+                        var icon by remember { mutableStateOf<Bitmap?>(null) }
                         var showSheet by remember { mutableStateOf(false) }
+
+                        // 🖼️ Chargement PARESSEUX de l'icône — seulement quand visible
+                        LaunchedEffect(app.pkg) {
+                            withContext(Dispatchers.IO) {
+                                icon = loadAppIconBitmap(ctx.packageManager, app.resolveInfo)
+                            }
+                        }
 
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -221,7 +249,9 @@ fun NovaLiteApp() {
                                             }
                                         }
                                     }
-                                    ctx.startActivity(ctx.packageManager.getLaunchIntentForPackage(app.pkg))
+                                    try {
+                                        ctx.startActivity(ctx.packageManager.getLaunchIntentForPackage(app.pkg))
+                                    } catch (_: Exception) {}
                                 },
                                 onLongClick = { showSheet = true }
                             )
@@ -232,9 +262,9 @@ fun NovaLiteApp() {
                                     .background(Color(0xFF121212), androidx.compose.foundation.shape.CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (app.icon != null) {
+                                if (icon != null) {
                                     androidx.compose.foundation.Image(
-                                        bitmap = app.icon.asImageBitmap(),
+                                        bitmap = icon!!.asImageBitmap(),
                                         contentDescription = app.label,
                                         modifier = Modifier.size(40.dp),
                                         contentScale = androidx.compose.ui.layout.ContentScale.Fit
@@ -264,21 +294,25 @@ fun NovaLiteApp() {
                                 ListItem(
                                     headlineContent = { Text("ℹ️ Infos de l'application", color = Color.White) },
                                     modifier = Modifier.clickable {
-                                        ctx.startActivity(
-                                            Intent(
-                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                                Uri.parse("package:${app.pkg}")
+                                        try {
+                                            ctx.startActivity(
+                                                Intent(
+                                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                    Uri.parse("package:${app.pkg}")
+                                                )
                                             )
-                                        )
+                                        } catch (_: Exception) {}
                                         showSheet = false
                                     }
                                 )
                                 ListItem(
                                     headlineContent = { Text("🗑️ Désinstaller", color = Color(0xFFFF5555)) },
                                     modifier = Modifier.clickable {
-                                        ctx.startActivity(
-                                            Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.pkg}"))
-                                        )
+                                        try {
+                                            ctx.startActivity(
+                                                Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.pkg}"))
+                                            )
+                                        } catch (_: Exception) {}
                                         showSheet = false
                                     }
                                 )
@@ -300,19 +334,30 @@ fun NovaLiteApp() {
                         repeat(7) { idx ->
                             val pkg = dock.getOrNull(idx)
                             val entry = apps.find { it.pkg == pkg }
+                            var dockIcon by remember(pkg) { mutableStateOf<Bitmap?>(null) }
+
+                            LaunchedEffect(pkg) {
+                                if (entry != null) {
+                                    withContext(Dispatchers.IO) {
+                                        dockIcon = loadAppIconBitmap(ctx.packageManager, entry.resolveInfo)
+                                    }
+                                }
+                            }
 
                             if (entry != null) {
                                 Box(
                                     modifier = Modifier
                                         .size(44.dp)
                                         .clickable {
-                                            ctx.startActivity(ctx.packageManager.getLaunchIntentForPackage(entry.pkg))
+                                            try {
+                                                ctx.startActivity(ctx.packageManager.getLaunchIntentForPackage(entry.pkg))
+                                            } catch (_: Exception) {}
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    if (entry.icon != null) {
+                                    if (dockIcon != null) {
                                         androidx.compose.foundation.Image(
-                                            bitmap = entry.icon.asImageBitmap(),
+                                            bitmap = dockIcon!!.asImageBitmap(),
                                             contentDescription = entry.label,
                                             modifier = Modifier.size(38.dp),
                                             contentScale = androidx.compose.ui.layout.ContentScale.Fit
@@ -332,12 +377,14 @@ fun NovaLiteApp() {
                                         .border(1.dp, Color(0xFF333333), androidx.compose.foundation.shape.CircleShape)
                                         .clickable {
                                             scope.launch {
-                                                ctx.dataStore.edit { prefs ->
-                                                    val current = dock.toMutableList()
-                                                    while (current.size <= idx) current.add("")
-                                                    current[idx] = apps.firstOrNull()?.pkg ?: ""
-                                                    prefs[stringPreferencesKey("dock")] = current.joinToString(",")
-                                                }
+                                                try {
+                                                    ctx.dataStore.edit { prefs ->
+                                                        val current = dock.toMutableList()
+                                                        while (current.size <= idx) current.add("")
+                                                        current[idx] = apps.firstOrNull()?.pkg ?: ""
+                                                        prefs[stringPreferencesKey("dock")] = current.joinToString(",")
+                                                    }
+                                                } catch (_: Exception) {}
                                             }
                                         },
                                     contentAlignment = Alignment.Center

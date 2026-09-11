@@ -25,14 +25,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.*
-import androidx.datastore.preferences.core.*
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-val Context.dataStore by preferencesDataStore("nova_dock")
 
 data class AppEntry(
     val label: String,
@@ -72,12 +67,20 @@ fun NovaLiteApp() {
     var apps by remember { mutableStateOf(listOf<AppEntry>()) }
     var query by remember { mutableStateOf("") }
     var gameMode by remember { mutableStateOf(false) }
-    var dock by remember { mutableStateOf(listOf<String>()) }
+    
+    // ✅ Dock en dur (pas de DataStore = pas de bug)
+    val dock = remember {
+        listOf(
+            "com.android.dialer", "com.android.mms", "com.android.camera",
+            "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
+            "com.activision.callofduty.shooter"
+        )
+    }
+    
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
-            // 📋 Charger la liste des apps
             try {
                 val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
                 val resolveInfos = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
@@ -95,20 +98,6 @@ fun NovaLiteApp() {
                 
                 apps = list.sortedBy { it.label.lowercase() }
             } catch (_: Exception) {}
-
-            // 📂 Lire DataStore UNE SEULE FOIS (PAS de collect = pas de bug Compose)
-            val defaultDock = listOf(
-                "com.android.dialer", "com.android.mms", "com.android.camera",
-                "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
-                "com.activision.callofduty.shooter"
-            )
-            try {
-                val prefs = ctx.dataStore.data.first()
-                val saved = prefs[stringPreferencesKey("dock")]
-                dock = saved?.split(",") ?: defaultDock
-            } catch (_: Exception) {
-                dock = defaultDock
-            }
         }
     }
 
@@ -345,18 +334,8 @@ fun NovaLiteApp() {
                                         .size(44.dp)
                                         .border(1.dp, Color(0xFF333333), androidx.compose.foundation.shape.CircleShape)
                                         .clickable {
-                                            scope.launch {
-                                                try {
-                                                    ctx.dataStore.edit { prefs ->
-                                                        val key = stringPreferencesKey("dock")
-                                                        val current = dock.toMutableList()
-                                                        while (current.size <= idx) current.add("")
-                                                        current[idx] = apps.firstOrNull()?.pkg ?: ""
-                                                        prefs[key] = current.joinToString(",")
-                                                        dock = current
-                                                    }
-                                                } catch (_: Exception) {}
-                                            }
+                                            // ✅ Plus de DataStore — juste un message
+                                            android.widget.Toast.makeText(ctx, "Personnalisation à venir", android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {

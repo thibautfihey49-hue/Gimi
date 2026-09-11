@@ -10,7 +10,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -29,8 +28,6 @@ import androidx.compose.ui.unit.*
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -47,106 +44,71 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         window.setWindowAnimations(0)
         super.onCreate(savedInstanceState)
-        setContent { NovaLiteScreen() }
+        setContent { NovaLiteApp() }
     }
 }
 
-fun loadAppIcon(pm: PackageManager, info: ResolveInfo): Bitmap? {
+fun getAppIcon(pm: PackageManager, info: ResolveInfo): Bitmap? {
     return try {
         val drawable = info.loadIcon(pm)
-        val bitmap: Bitmap = when (drawable) {
-            is BitmapDrawable -> drawable.bitmap
-            is AdaptiveIconDrawable -> {
-                val w = drawable.intrinsicWidth.coerceAtLeast(96)
-                val h = drawable.intrinsicHeight.coerceAtLeast(96)
-                val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bmp)
-                drawable.setBounds(0, 0, canvas.width, canvas.height)
-                drawable.draw(canvas)
-                bmp
-            }
-            else -> {
-                val w = drawable.intrinsicWidth.coerceAtLeast(96)
-                val h = drawable.intrinsicHeight.coerceAtLeast(96)
-                val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bmp)
-                drawable.setBounds(0, 0, canvas.width, canvas.height)
-                drawable.draw(canvas)
-                bmp
-            }
-        }
-        Bitmap.createScaledBitmap(bitmap, 64, 64, false)
+        val w = drawable.intrinsicWidth.coerceAtLeast(96)
+        val h = drawable.intrinsicHeight.coerceAtLeast(96)
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        Bitmap.createScaledBitmap(bmp, 64, 64, false)
     } catch (e: Exception) {
         null
     }
 }
 
-fun loadAllAppsData(ctx: Context): Pair<List<AppEntry>, List<String>> {
-    val pm = ctx.packageManager
-    val apps = try {
-        val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
-        pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-            .mapNotNull { info ->
-                try {
-                    val label = info.loadLabel(pm).toString()
-                    val pkg = info.activityInfo.packageName
-                    val isSys = (info.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-                    val icon = loadAppIcon(pm, info)
-                    AppEntry(label = label, pkg = pkg, isSystem = isSys, icon = icon)
-                } catch (_: Exception) { null }
-            }
-            .sortedBy { it.label.lowercase() }
-    } catch (_: Exception) { emptyList() }
-
-    val dock = try {
-        val prefsKey = stringPreferencesKey("dock")
-        var result: List<String>? = null
-        val job = kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
-            ctx.dataStore.data.map { prefs ->
-                prefs[prefsKey]?.split(",") ?: listOf(
-                    "com.android.dialer", "com.android.mms", "com.android.camera",
-                    "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
-                    "com.activision.callofduty.shooter"
-                )
-            }.collect { result = it }
-        }
-        Thread.sleep(300)
-        result ?: listOf(
-            "com.android.dialer", "com.android.mms", "com.android.camera",
-            "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
-            "com.activision.callofduty.shooter"
-        )
-    } catch (_: Exception) {
-        listOf(
-            "com.android.dialer", "com.android.mms", "com.android.camera",
-            "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
-            "com.activision.callofduty.shooter"
-        )
-    }
-
-    return Pair(apps, dock)
-}
-
 @Composable
-fun NovaLiteScreen() {
+fun NovaLiteApp() {
     val ctx = LocalContext.current
-    var allApps by remember { mutableStateOf(emptyList<AppEntry>()) }
-    var dockPkgs by remember { mutableStateOf(emptyList<String>()) }
+    val pm = ctx.packageManager
+    
+    var apps by remember { mutableStateOf(listOf<AppEntry>()) }
     var query by remember { mutableStateOf("") }
     var gameMode by remember { mutableStateOf(false) }
+    var dock by remember { mutableStateOf(listOf<String>()) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
-            val (apps, dock) = loadAllAppsData(ctx)
-            allApps = apps
-            dockPkgs = dock
+            try {
+                val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
+                val resolveInfos = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
+                val list = mutableListOf<AppEntry>()
+                
+                for (info in resolveInfos) {
+                    try {
+                        val label = info.loadLabel(pm).toString()
+                        val pkg = info.activityInfo.packageName
+                        val isSys = (info.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                        val icon = getAppIcon(pm, info)
+                        list.add(AppEntry(label, pkg, isSys, icon))
+                    } catch (_: Exception) {}
+                }
+                
+                apps = list.sortedBy { it.label.lowercase() }
+            } catch (_: Exception) {}
+
+            try {
+                ctx.dataStore.data.map { prefs ->
+                    prefs[stringPreferencesKey("dock")]?.split(",") ?: listOf(
+                        "com.android.dialer", "com.android.mms", "com.android.camera",
+                        "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
+                        "com.activision.callofduty.shooter"
+                    )
+                }.collect { dock = it }
+            } catch (_: Exception) {}
         }
     }
 
-    val filtered = remember(query, allApps) {
-        if (query.isBlank()) allApps
-        else allApps.filter { it.label.contains(query, true, ignoreCase = true) }.take(30)
+    val filtered = remember(query, apps) {
+        if (query.isBlank()) apps
+        else apps.filter { it.label.contains(query, true, ignoreCase = true) }.take(30)
     }
 
     MaterialTheme(colorScheme = darkColorScheme(background = Color.Black)) {
@@ -154,7 +116,7 @@ fun NovaLiteScreen() {
             Column(Modifier.padding(8.dp).fillMaxSize()) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
-                        text = if (gameMode) "🎮 GAME MODE ON" else "${allApps.size} apps",
+                        text = if (gameMode) "🎮 GAME MODE ON" else "${apps.size} apps",
                         color = if (gameMode) Color(0xFF00FF88) else Color(0xFF666666),
                         fontSize = 11.sp
                     )
@@ -260,7 +222,6 @@ fun NovaLiteScreen() {
                                         }
                                     }
                                     try {
-                                        val pm = ctx.packageManager
                                         ctx.startActivity(pm.getLaunchIntentForPackage(app.pkg))
                                     } catch (_: Exception) {}
                                 },
@@ -343,8 +304,8 @@ fun NovaLiteScreen() {
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         repeat(7) { idx ->
-                            val pkg = dockPkgs.getOrNull(idx)
-                            val entry = allApps.find { it.pkg == pkg }
+                            val pkg = dock.getOrNull(idx)
+                            val entry = apps.find { it.pkg == pkg }
 
                             if (entry != null) {
                                 Box(
@@ -352,7 +313,6 @@ fun NovaLiteScreen() {
                                         .size(44.dp)
                                         .clickable {
                                             try {
-                                                val pm = ctx.packageManager
                                                 ctx.startActivity(pm.getLaunchIntentForPackage(entry.pkg))
                                             } catch (_: Exception) {}
                                         },
@@ -383,11 +343,11 @@ fun NovaLiteScreen() {
                                                 try {
                                                     ctx.dataStore.edit { prefs ->
                                                         val key = stringPreferencesKey("dock")
-                                                        val current = dockPkgs.toMutableList()
+                                                        val current = dock.toMutableList()
                                                         while (current.size <= idx) current.add("")
-                                                        current[idx] = allApps.firstOrNull()?.pkg ?: ""
+                                                        current[idx] = apps.firstOrNull()?.pkg ?: ""
                                                         prefs[key] = current.joinToString(",")
-                                                        dockPkgs = current
+                                                        dock = current
                                                     }
                                                 } catch (_: Exception) {}
                                             }

@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.*
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -76,6 +77,7 @@ fun NovaLiteApp() {
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
+            // 📋 Charger la liste des apps
             try {
                 val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
                 val resolveInfos = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
@@ -94,21 +96,18 @@ fun NovaLiteApp() {
                 apps = list.sortedBy { it.label.lowercase() }
             } catch (_: Exception) {}
 
+            // 📂 Lire DataStore UNE SEULE FOIS (PAS de collect = pas de bug Compose)
+            val defaultDock = listOf(
+                "com.android.dialer", "com.android.mms", "com.android.camera",
+                "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
+                "com.activision.callofduty.shooter"
+            )
             try {
-                val prefsKey = stringPreferencesKey("dock")
-                ctx.dataStore.data.map { prefs ->
-                    prefs[prefsKey]?.split(",") ?: listOf(
-                        "com.android.dialer", "com.android.mms", "com.android.camera",
-                        "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
-                        "com.activision.callofduty.shooter"
-                    )
-                }.collect { dock = it }
+                val prefs = ctx.dataStore.data.first()
+                val saved = prefs[stringPreferencesKey("dock")]
+                dock = saved?.split(",") ?: defaultDock
             } catch (_: Exception) {
-                dock = listOf(
-                    "com.android.dialer", "com.android.mms", "com.android.camera",
-                    "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
-                    "com.activision.callofduty.shooter"
-                )
+                dock = defaultDock
             }
         }
     }

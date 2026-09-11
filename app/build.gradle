@@ -2,9 +2,11 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
 }
+
 android {
     namespace 'com.novalite.launcher'
     compileSdk 34
+
     defaultConfig {
         applicationId "com.novalite.launcher"
         minSdk 24
@@ -12,16 +14,40 @@ android {
         versionCode 5
         versionName "5.0-ultra-light-game-booster"
     }
+
     buildTypes {
-        debug { isMinifyEnabled false; isShrinkResources false; debuggable true }
-        release { isMinifyEnabled true; isShrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro' }
+        debug {
+            minifyEnabled false
+            shrinkResources false
+            debuggable true
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
     }
-    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-    kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose true }
-    composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }
-    packaging { resources { excludes += '/META-INF/{AL2.0,LGPL2.1}' } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    buildFeatures {
+        compose true
+        buildConfig true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
+    }
+    packaging {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+        }
+    }
 }
+
 dependencies {
     implementation "androidx.core:core-ktx:1.12.0"
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"

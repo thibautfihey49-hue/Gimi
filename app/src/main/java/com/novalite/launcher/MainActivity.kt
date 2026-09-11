@@ -25,9 +25,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.*
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -94,15 +97,22 @@ fun NovaLiteApp() {
                 apps = list.sortedBy { it.label.lowercase() }
             } catch (_: Exception) {}
 
+            // ✅ DataStore: PREMIÈRE valeur au lieu de collect (évite le bug Compose)
             try {
-                ctx.dataStore.data.map { prefs ->
-                    prefs[stringPreferencesKey("dock")]?.split(",") ?: listOf(
-                        "com.android.dialer", "com.android.mms", "com.android.camera",
-                        "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
-                        "com.activision.callofduty.shooter"
-                    )
-                }.collect { dock = it }
-            } catch (_: Exception) {}
+                val prefs = ctx.dataStore.data.first()
+                val dockValue = prefs[stringPreferencesKey("dock")]
+                dock = dockValue?.split(",") ?: listOf(
+                    "com.android.dialer", "com.android.mms", "com.android.camera",
+                    "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
+                    "com.activision.callofduty.shooter"
+                )
+            } catch (_: Exception) {
+                dock = listOf(
+                    "com.android.dialer", "com.android.mms", "com.android.camera",
+                    "com.whatsapp", "com.spotify.music", "com.google.android.youtube",
+                    "com.activision.callofduty.shooter"
+                )
+            }
         }
     }
 

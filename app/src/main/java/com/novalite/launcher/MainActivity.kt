@@ -25,7 +25,6 @@ import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.*
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
@@ -56,11 +55,9 @@ fun drawableToBitmap(drawable: Drawable): Bitmap? {
     return when (drawable) {
         is BitmapDrawable -> drawable.bitmap
         is AdaptiveIconDrawable -> {
-            val bitmap = Bitmap.createBitmap(
-                drawable.intrinsicWidth.takeIf { it > 0 } ?: 96,
-                drawable.intrinsicHeight.takeIf { it > 0 } ?: 96,
-                Bitmap.Config.ARGB_8888
-            )
+            val w = drawable.intrinsicWidth.takeIf { it > 0 } ?: 96
+            val h = drawable.intrinsicHeight.takeIf { it > 0 } ?: 96
+            val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             drawable.setBounds(0, 0, canvas.width, canvas.height)
             drawable.draw(canvas)
@@ -96,9 +93,7 @@ fun NovaLiteApp() {
                     val label = info.loadLabel(pm).toString()
                     val pkg = info.activityInfo.packageName
                     val isSys = (info.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-                    val icon = try {
-                        drawableToBitmap(info.loadIcon(pm))
-                    } catch (_: Exception) { null }
+                    val icon = try { drawableToBitmap(info.loadIcon(pm)) } catch (_: Exception) { null }
                     AppEntry(info, label, pkg, isSys, icon)
                 }
                 .sortedBy { it.label.lowercase() }
@@ -145,11 +140,15 @@ fun NovaLiteApp() {
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
-                    colors = TextFieldDefaults.outlinedTextFieldColors(
-                        textColor = Color.White,
-                        placeholderColor = Color(0xFF555555),
-                        borderColor = Color(0xFF333333),
-                        focusedBorderColor = Color(0xFF00FF88)
+                    colors = TextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedPlaceholderColor = Color(0xFF555555),
+                        unfocusedPlaceholderColor = Color(0xFF555555),
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color(0xFF00FF88),
+                        unfocusedIndicatorColor = Color(0xFF333333)
                     )
                 )
 

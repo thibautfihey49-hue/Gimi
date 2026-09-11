@@ -16,11 +16,19 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Grant execute permission for gradlew
+      - name: Install Gradle 8.5 explicitly
+        run: |
+          mkdir -p ~/.gradle/wrapper/dists
+          cd ~/.gradle/wrapper/dists
+          wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
+          unzip -q -o gradle-8.5-bin.zip
+          echo "GRADLE_HOME=$PWD/gradle-8.5" >> $GITHUB_ENV
+
+      - name: Grant execute permission
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace --no-configuration-cache
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

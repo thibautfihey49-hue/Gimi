@@ -102,7 +102,7 @@ fun NovaLiteApp() {
 
     val filtered = remember(query, apps) {
         if (query.isBlank()) apps
-        else apps.filter { it.label.contains(query, true, ignoreCase = true) }.take(30)
+        else apps.filter { it.label.lowercase().contains(query.lowercase()) }.take(30)
     }
 
     MaterialTheme(colorScheme = darkColorScheme(background = Color.Black)) {
@@ -182,7 +182,8 @@ fun NovaLiteApp() {
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.combinedClickable(
                                 onClick = {
-                                    if (gameMode && app.pkg.contains("callofduty", ignoreCase = true)) {
+                                    // ✅ CORRIGÉ: utilisation de lowercase() au lieu de ignoreCase
+                                    if (gameMode && app.pkg.lowercase().contains("callofduty")) {
                                         scope.launch(Dispatchers.IO) {
                                             try {
                                                 val am = ctx.getSystemService(android.app.ActivityManager::class.java)

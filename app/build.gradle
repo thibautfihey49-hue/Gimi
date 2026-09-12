@@ -11,15 +11,14 @@ android {
         applicationId "com.novalite.launcher"
         minSdk 24
         targetSdk 34
-        versionCode 6
-        versionName "6.0"
+        versionCode 7
+        versionName "7.0 Ultra Lite"
     }
 
     buildTypes {
         debug {
             minifyEnabled false
             shrinkResources false
-            debuggable true
         }
         release {
             minifyEnabled true
@@ -36,7 +35,7 @@ android {
     }
     buildFeatures {
         compose true
-        buildConfig true
+        buildConfig false
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.10"
@@ -53,8 +52,5 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
     implementation "androidx.activity:activity-compose:1.8.2"
     implementation "androidx.compose.ui:ui:1.5.4"
-    implementation "androidx.compose.ui:ui-tooling-preview:1.5.4"
     implementation "androidx.compose.material3:material3:1.1.2"
-    implementation "androidx.compose.material:material-icons-extended:1.5.4"
-    implementation "androidx.datastore:datastore-preferences:1.0.0"
 }

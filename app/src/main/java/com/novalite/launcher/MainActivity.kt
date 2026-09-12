@@ -8,8 +8,6 @@ import android.content.*
 import android.content.pm.*
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.drawable.AdaptiveIconDrawable
-import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -48,16 +46,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// ✅ SÉCURISÉ: chargement d'icône avec try/catch complet
-fun getAppIconSafe(pm: PackageManager, info: ResolveInfo): Bitmap? {
+fun getAppIconSafe(pm: PackageManager, info: ApplicationInfo): Bitmap? {
     return try {
-        val drawable = info.loadIcon(pm) ?: return null
+        val drawable = pm.getApplicationIcon(info) ?: return null
         val w = drawable.intrinsicWidth
         val h = drawable.intrinsicHeight
-        
-        // ✅ Filtre les icônes invalides
-        if (w <= 0 || h <= 0 || w > 1024 || h > 1024) return null
-        
+        if (w <= 0 || h <= 0 || w > 2048 || h > 2048) return null
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         drawable.setBounds(0, 0, canvas.width, canvas.height)
@@ -92,42 +86,37 @@ fun NovaLiteApp() {
         isLoading = true
         withContext(Dispatchers.IO) {
             try {
-                val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
-                // ✅ MATCH_DEFAULT_ONLY au lieu de MATCH_ALL — plus rapide, moins d'erreurs
-                val resolveInfos = pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+                // ✅ MÉTHODE 1: Récupérer TOUTES les apps installées
+                val installedPkgs = pm.getInstalledApplications(PackageManager.GET_META_DATA)
                 val list = mutableListOf<AppEntry>()
                 
-                for (info in resolveInfos) {
+                for (info in installedPkgs) {
                     try {
-                        val label = info.loadLabel(pm)?.toString() ?: continue
-                        val pkg = info.activityInfo?.packageName ?: continue
-                        val isSys = (info.activityInfo?.applicationInfo?.flags ?: 0) and ApplicationInfo.FLAG_SYSTEM != 0
-                        // ✅ SANS icône d'abord — chargement instantané
-                        list.add(AppEntry(label, pkg, isSys, null))
+                        // ✅ Vérifie que l'app a un launcher (peut être lancée)
+                        val launchIntent = pm.getLaunchIntentForPackage(info.packageName)
+                        if (launchIntent == null) continue // ignore les apps non-lançables
+                        
+                        val label = pm.getApplicationLabel(info)?.toString() ?: continue
+                        val isSys = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                        
+                        list.add(AppEntry(label, info.packageName, isSys, null))
                     } catch (_: Exception) {}
                 }
                 
+                // ✅ Tri par nom
                 apps = list.sortedBy { it.label.lowercase() }
                 
-                // ✅ Icônes chargées EN ARRIÈRE-PLAN une fois la liste affichée
-                withContext(Dispatchers.IO.limitedParallelism(2)) {
-                    apps.forEachIndexed { i, app ->
-                        if (app.icon == null) {
-                            try {
-                                val intent2 = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
-                                val infos = pm.queryIntentActivities(intent2, PackageManager.MATCH_DEFAULT_ONLY)
-                                val info = infos.find { it.activityInfo?.packageName == app.pkg }
-                                if (info != null) {
-                                    val icon = getAppIconSafe(pm, info)
-                                    if (icon != null) {
-                                        apps = apps.toMutableList().also { 
-                                            it[i] = app.copy(icon = icon)
-                                        }
-                                    }
-                                }
-                            } catch (_: Exception) {}
+                // ✅ Chargement des icônes EN ARRIÈRE-PLAN (limité pour éviter crash)
+                apps.forEachIndexed { i, app ->
+                    try {
+                        val info = pm.getApplicationInfo(app.pkg, PackageManager.GET_META_DATA)
+                        val icon = getAppIconSafe(pm, info)
+                        if (icon != null) {
+                            apps = apps.toMutableList().also { 
+                                it[i] = app.copy(icon = icon)
+                            }
                         }
-                    }
+                    } catch (_: Exception) {}
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -150,7 +139,7 @@ fun NovaLiteApp() {
                         text = when {
                             isLoading -> "⏳ Chargement..."
                             gameMode -> "🎮 GAME MODE ON"
-                            else -> "${apps.size} apps"
+                            else -> "${apps.size} applications"
                         },
                         color = if (gameMode) Color(0xFF00FF88) else Color(0xFF666666),
                         fontSize = 11.sp
@@ -191,7 +180,11 @@ fun NovaLiteApp() {
 
                 if (isLoading && apps.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = Color(0xFF00FF88))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = Color(0xFF00FF88))
+                            Spacer(Modifier.height(16.dp))
+                            Text("Scan des applications...", color = Color(0xFF888888), fontSize = 12.sp)
+                        }
                     }
                 } else {
                     if (filtered.isEmpty() && query.length >= 2) {
@@ -262,7 +255,10 @@ fun NovaLiteApp() {
                                             }
                                         }
                                         try {
-                                            ctx.startActivity(pm.getLaunchIntentForPackage(app.pkg))
+                                            val launchIntent = pm.getLaunchIntentForPackage(app.pkg)
+                                            if (launchIntent != null) {
+                                                ctx.startActivity(launchIntent)
+                                            }
                                         } catch (_: Exception) {}
                                     },
                                     onLongClick = { showSheet = true }
@@ -353,7 +349,10 @@ fun NovaLiteApp() {
                                             .size(44.dp)
                                             .clickable {
                                                 try {
-                                                    ctx.startActivity(pm.getLaunchIntentForPackage(entry.pkg))
+                                                    val launchIntent = pm.getLaunchIntentForPackage(entry.pkg)
+                                                    if (launchIntent != null) {
+                                                        ctx.startActivity(launchIntent)
+                                                    }
                                                 } catch (_: Exception) {}
                                             },
                                         contentAlignment = Alignment.Center

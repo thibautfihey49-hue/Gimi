@@ -68,7 +68,6 @@ fun NovaLiteApp() {
     var query by remember { mutableStateOf("") }
     var gameMode by remember { mutableStateOf(false) }
     
-    // ✅ Dock en dur (pas de DataStore = pas de bug)
     val dock = remember {
         listOf(
             "com.android.dialer", "com.android.mms", "com.android.camera",
@@ -334,7 +333,6 @@ fun NovaLiteApp() {
                                         .size(44.dp)
                                         .border(1.dp, Color(0xFF333333), androidx.compose.foundation.shape.CircleShape)
                                         .clickable {
-                                            // ✅ Plus de DataStore — juste un message
                                             android.widget.Toast.makeText(ctx, "Personnalisation à venir", android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                     contentAlignment = Alignment.Center

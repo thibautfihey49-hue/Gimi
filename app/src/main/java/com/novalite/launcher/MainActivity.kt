@@ -40,26 +40,26 @@ data class AppEntry(
 )
 
 class MainActivity : ComponentActivity() {
-    private lateinit var appReceiver: BroadcastReceiver
+    private var refreshTrigger by mutableStateOf(0)
+    
+    private val appReceiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_PACKAGE_REMOVED,
+                Intent.ACTION_PACKAGE_ADDED,
+                Intent.ACTION_PACKAGE_REPLACED -> {
+                    if (intent.data?.schemeSpecificPart != packageName) {
+                        refreshTrigger++
+                    }
+                }
+            }
+        }
+    }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         try {
             window.setWindowAnimations(0)
             super.onCreate(savedInstanceState)
-            
-            appReceiver = object : BroadcastReceiver() {
-                override fun onReceive(ctx: Context?, intent: Intent?) {
-                    when (intent?.action) {
-                        Intent.ACTION_PACKAGE_REMOVED,
-                        Intent.ACTION_PACKAGE_ADDED,
-                        Intent.ACTION_PACKAGE_REPLACED -> {
-                            if (intent.data?.schemeSpecificPart != packageName) {
-                                refreshApps()
-                            }
-                        }
-                    }
-                }
-            }
             
             registerReceiver(appReceiver, IntentFilter().apply {
                 addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -68,26 +68,15 @@ class MainActivity : ComponentActivity() {
                 addDataScheme("package")
             })
             
-            setContent { NovaLiteApp(::refreshApps) }
+            setContent { NovaLiteApp(refreshTrigger) }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
     
-    private fun refreshApps() {
-        // Notifie le composant de recharger la liste
-        refreshEvent.tryEmit(Unit)
-    }
-    
     override fun onDestroy() {
         super.onDestroy()
         try { unregisterReceiver(appReceiver) } catch (_: Exception) {}
-    }
-    
-    companion object {
-        val refreshEvent = kotlinx.coroutines.channels.Channel<Unit>(
-            kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
-        )
     }
 }
 
@@ -108,7 +97,7 @@ fun getAppIconSafe(pm: PackageManager, info: ApplicationInfo): Bitmap? {
 }
 
 @Composable
-fun NovaLiteApp(onRefresh: () -> Unit) {
+fun NovaLiteApp(refreshTrigger: Int) {
     val ctx = LocalContext.current
     val pm = ctx.packageManager
     val scope = rememberCoroutineScope()
@@ -120,6 +109,7 @@ fun NovaLiteApp(onRefresh: () -> Unit) {
     
     fun loadApps() {
         scope.launch(Dispatchers.IO) {
+            isLoading = true
             try {
                 val installedPkgs = pm.getInstalledApplications(0)
                 val list = mutableListOf<AppEntry>()
@@ -156,12 +146,8 @@ fun NovaLiteApp(onRefresh: () -> Unit) {
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(refreshTrigger) {
         loadApps()
-        MainActivity.refreshEvent.receiveAsFlow().collect {
-            isLoading = true
-            loadApps()
-        }
     }
 
     val filtered = remember(query, allApps) {

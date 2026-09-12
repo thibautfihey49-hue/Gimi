@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -62,7 +61,7 @@ fun getAppIconSafe(pm: PackageManager, info: ApplicationInfo): Bitmap? {
         val canvas = Canvas(bmp)
         drawable.setBounds(0, 0, canvas.width, canvas.height)
         drawable.draw(canvas)
-        Bitmap.createScaledBitmap(bmp, 52, 52, false)
+        Bitmap.createScaledBitmap(bmp, 72, 72, false)
     } catch (e: Exception) {
         null
     }
@@ -135,12 +134,12 @@ fun NovaLiteApp() {
         ) {
             Column(Modifier.fillMaxSize()) {
                 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(36.dp))
                 
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -148,17 +147,17 @@ fun NovaLiteApp() {
                         Text(
                             "Nova Lite",
                             color = Color.White,
-                            fontSize = 20.sp,
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             when {
                                 isLoading -> "Chargement..."
                                 gameMode -> "🎮 Mode jeu actif"
-                                else -> "${allApps.size} apps"
+                                else -> "${allApps.size} applications"
                             },
                             color = Color(0xFF707070),
-                            fontSize = 11.sp
+                            fontSize = 12.sp
                         )
                     }
                     
@@ -174,27 +173,27 @@ fun NovaLiteApp() {
                                 Icons.Default.Settings,
                                 "Paramètres",
                                 tint = Color(0xFF707071),
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
                 }
                 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
 
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    placeholder = { Text("Rechercher...", color = Color(0xFF505050)) },
+                    placeholder = { Text("Rechercher une application...", color = Color(0xFF505050)) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 20.dp),
                     singleLine = true,
                     textStyle = androidx.compose.ui.text.TextStyle(
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
                         color = Color.White
                     ),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
@@ -204,27 +203,32 @@ fun NovaLiteApp() {
                         unfocusedIndicatorColor = Color.Transparent,
                         cursorColor = Color(0xFF00E570)
                     ),
-                    leadingIcon = { Text("🔍", fontSize = 14.sp) }
+                    leadingIcon = { Text("🔍", fontSize = 16.sp) }
                 )
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(20.dp))
 
                 if (isLoading && allApps.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(
-                            color = Color(0xFF00E570),
-                            strokeWidth = 2.5.dp
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF00E570),
+                                strokeWidth = 3.dp,
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text("Chargement des applications...", color = Color(0xFF707070))
+                        }
                     }
                 } else {
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(5),
+                        columns = GridCells.Fixed(4),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        contentPadding = PaddingValues(bottom = 24.dp)
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(28.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 32.dp)
                     ) {
                         items(filtered.size, key = { filtered[it].pkg }) { i ->
                             val app = filtered[i]
@@ -247,7 +251,7 @@ fun NovaLiteApp() {
                                                     }
                                                 } catch (_: Exception) {}
                                                 withContext(Dispatchers.Main) {
-                                                    android.widget.Toast.makeText(ctx, "🚀 MODE TURBO", android.widget.Toast.LENGTH_SHORT).show()
+                                                    android.widget.Toast.makeText(ctx, "🚀 MODE TURBO ACTIF", android.widget.Toast.LENGTH_SHORT).show()
                                                 }
                                             }
                                         }
@@ -260,34 +264,34 @@ fun NovaLiteApp() {
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(48.dp)
-                                        .background(Color(0xFF1A1A1F), RoundedCornerShape(14.dp)),
+                                        .size(72.dp)
+                                        .background(Color(0xFF1A1A1F), RoundedCornerShape(18.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (app.icon != null) {
                                         androidx.compose.foundation.Image(
                                             bitmap = app.icon.asImageBitmap(),
                                             contentDescription = app.label,
-                                            modifier = Modifier.size(32.dp),
+                                            modifier = Modifier.size(48.dp),
                                             contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                         )
                                     } else {
                                         Text(
                                             app.label.firstOrNull()?.toString() ?: "?",
                                             color = Color.White,
-                                            fontSize = 16.sp,
+                                            fontSize = 20.sp,
                                             fontWeight = FontWeight.Medium
                                         )
                                     }
                                 }
-                                Spacer(Modifier.height(4.dp))
+                                Spacer(Modifier.height(8.dp))
                                 Text(
                                     app.label,
-                                    fontSize = 9.sp,
-                                    color = Color(0xFFB0B0B5),
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFD0D0D5),
                                     maxLines = 1,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier.width(56.dp)
+                                    modifier = Modifier.width(80.dp)
                                 )
                             }
 
@@ -310,9 +314,9 @@ fun NovaLiteApp() {
                                                         } catch (_: Exception) {}
                                                         showMenu = false
                                                     }
-                                                    .padding(vertical = 14.dp, horizontal = 8.dp)
+                                                    .padding(vertical = 16.dp, horizontal = 8.dp)
                                             ) {
-                                                Text("ℹ️ Informations", color = Color.White, fontSize = 15.sp)
+                                                Text("ℹ️ Informations de l'application", color = Color.White, fontSize = 16.sp)
                                             }
                                             Box(
                                                 Modifier
@@ -325,9 +329,9 @@ fun NovaLiteApp() {
                                                         } catch (_: Exception) {}
                                                         showMenu = false
                                                     }
-                                                    .padding(vertical = 14.dp, horizontal = 8.dp)
+                                                    .padding(vertical = 16.dp, horizontal = 8.dp)
                                             ) {
-                                                Text("🗑️ Désinstaller", color = Color(0xFFFF5555), fontSize = 15.sp)
+                                                Text("🗑️ Désinstaller l'application", color = Color(0xFFFF5555), fontSize = 16.sp)
                                             }
                                         }
                                     },

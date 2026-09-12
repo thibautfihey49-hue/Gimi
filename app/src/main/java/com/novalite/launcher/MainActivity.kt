@@ -16,7 +16,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -24,7 +23,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -162,14 +161,6 @@ fun NovaLiteApp() {
         else allApps.filter { it.label.lowercase().contains(query.lowercase()) }.take(30)
     }
 
-    val backgroundBrush = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF0F1729),
-            Color(0xFF1A1F35),
-            Color(0xFF12121F)
-        )
-    )
-
     MaterialTheme(colorScheme = darkColorScheme()) {
         Box(
             modifier = Modifier
@@ -263,8 +254,7 @@ fun NovaLiteApp() {
                             Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 20.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF1E3A5F))
+                                .background(Color(0xFF1E3A5F), RoundedCornerShape(12.dp))
                                 .clickable {
                                     ctx.startActivity(
                                         Intent(
@@ -341,8 +331,7 @@ fun NovaLiteApp() {
                                 Box(
                                     modifier = Modifier
                                         .size(52.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(Color(0xFF27272A)),
+                                        .background(Color(0xFF27272A), RoundedCornerShape(16.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (app.icon != null) {
@@ -381,8 +370,7 @@ fun NovaLiteApp() {
                                                 Box(
                                                     Modifier
                                                         .fillMaxWidth()
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                        .background(Color(0xFF27272A))
+                                                        .background(Color(0xFF27272A), RoundedCornerShape(8.dp))
                                                         .clickable {
                                                             val newDock = dock + app.pkg
                                                             if (newDock.size <= 7) saveDock(newDock)
@@ -397,8 +385,7 @@ fun NovaLiteApp() {
                                             Box(
                                                 Modifier
                                                     .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(Color(0xFF27272A))
+                                                    .background(Color(0xFF27272A), RoundedCornerShape(8.dp))
                                                     .clickable {
                                                         try {
                                                             ctx.startActivity(
@@ -418,8 +405,7 @@ fun NovaLiteApp() {
                                             Box(
                                                 Modifier
                                                     .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(Color(0xFF27272A))
+                                                    .background(Color(0xFF27272A), RoundedCornerShape(8.dp))
                                                     .clickable {
                                                         try {
                                                             ctx.startActivity(
@@ -446,13 +432,11 @@ fun NovaLiteApp() {
 
                     Spacer(Modifier.height(16.dp))
                     
-                    // 📌 DOCK
                     Box(
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(Color(0xFF18181B))
+                            .background(Color(0xFF18181B), RoundedCornerShape(24.dp))
                             .border(1.dp, Color(0xFF3F3F46), RoundedCornerShape(24.dp))
                             .padding(horizontal = 12.dp, vertical = 12.dp)
                     ) {
@@ -469,8 +453,7 @@ fun NovaLiteApp() {
                                     Box(
                                         modifier = Modifier
                                             .size(50.dp)
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .background(Color(0xFF27272A))
+                                            .background(Color(0xFF27272A), RoundedCornerShape(14.dp))
                                             .clickable {
                                                 try {
                                                     val launchIntent = pm.getLaunchIntentForPackage(entry.pkg)
@@ -512,7 +495,6 @@ fun NovaLiteApp() {
                 }
             }
 
-            // 📌 MODALE DOCK
             if (showDockEdit) {
                 AlertDialog(
                     onDismissRequest = { showDockEdit = false },
@@ -527,8 +509,7 @@ fun NovaLiteApp() {
                                     Row(
                                         Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFF27272A))
+                                            .background(Color(0xFF27272A), RoundedCornerShape(8.dp))
                                             .combinedClickable(
                                                 onClick = {},
                                                 onLongClick = {

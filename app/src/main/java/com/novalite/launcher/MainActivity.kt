@@ -80,24 +80,26 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+inline fun <T> fastLet(flag: Boolean, block: () -> T): T? = if (flag) block() else null
+
 fun getAppIconSafe(pm: PackageManager, info: ApplicationInfo): Bitmap? {
     return try {
         val drawable = pm.getApplicationIcon(info) ?: return null
         val w = drawable.intrinsicWidth
         val h = drawable.intrinsicHeight
-        if (w <= 0 || h <= 0 || w > 2048 || h > 2048) return null
+        if (w <= 0 || h <= 0 || w > 1024 || h > 1024) return null
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         drawable.setBounds(0, 0, canvas.width, canvas.height)
         drawable.draw(canvas)
-        Bitmap.createScaledBitmap(bmp, 72, 72, false)
+        Bitmap.createScaledBitmap(bmp, 64, 64, false)
     } catch (e: Exception) {
         null
     }
 }
 
 @Composable
-fun NovaLiteApp(refreshTrigger: Int) {
+inline fun NovaLiteApp(refreshTrigger: Int) {
     val ctx = LocalContext.current
     val pm = ctx.packageManager
     val scope = rememberCoroutineScope()
@@ -112,20 +114,19 @@ fun NovaLiteApp(refreshTrigger: Int) {
             isLoading = true
             try {
                 val installedPkgs = pm.getInstalledApplications(0)
-                val list = mutableListOf<AppEntry>()
+                val list = ArrayList<AppEntry>(installedPkgs.size)
                 
                 for (info in installedPkgs) {
                     try {
-                        val launchIntent = pm.getLaunchIntentForPackage(info.packageName)
-                        if (launchIntent == null) continue
-                        
+                        val launchIntent = pm.getLaunchIntentForPackage(info.packageName) ?: continue
                         val label = pm.getApplicationLabel(info)?.toString() ?: continue
                         val isSys = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
                         list.add(AppEntry(label, info.packageName, isSys, null))
                     } catch (_: Exception) {}
                 }
                 
-                allApps = list.sortedBy { it.label.lowercase() }
+                list.sortBy { it.label.lowercase() }
+                allApps = list
                 
                 allApps.forEachIndexed { i, app ->
                     try {
@@ -146,43 +147,45 @@ fun NovaLiteApp(refreshTrigger: Int) {
         }
     }
 
-    LaunchedEffect(refreshTrigger) {
-        loadApps()
-    }
+    LaunchedEffect(refreshTrigger) { loadApps() }
 
     val filtered = remember(query, allApps) {
-        if (query.isBlank()) allApps
-        else allApps.filter { it.label.lowercase().contains(query.lowercase()) }
+        if (query.isEmpty()) allApps
+        else {
+            val search = query.lowercase()
+            allApps.filter { it.label.lowercase().contains(search) }
+        }
     }
 
-    MaterialTheme(colorScheme = darkColorScheme(
-        background = Color(0xFFF8F9FA),
-        surface = Color(0xFFFFFFFF),
-        onBackground = Color(0xFF1A1A1A),
-        onSurface = Color(0xFF2C2C2C),
-        primary = Color(0xFF00C853)
+    MaterialTheme(colorScheme = lightColorScheme(
+        primary = Color(0xFF00C853),
+        onPrimary = Color.White,
+        background = Color(0xFFFAFAFA),
+        onBackground = Color(0xFF121212),
+        surface = Color.White,
+        onSurface = Color(0xFF1E1E1E)
     )) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF8F9FA))
+                .background(Color(0xFFFAFAFA))
         ) {
             Column(Modifier.fillMaxSize()) {
                 
-                Spacer(Modifier.height(48.dp))
+                Spacer(Modifier.height(40.dp))
                 
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
                         Text(
                             "Nova Lite",
-                            color = Color(0xFF1A1A1A),
-                            fontSize = 26.sp,
+                            color = Color(0xFF121212),
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
@@ -192,7 +195,7 @@ fun NovaLiteApp(refreshTrigger: Int) {
                                 else -> "${allApps.size} applications"
                             },
                             color = Color(0xFF757575),
-                            fontSize = 13.sp
+                            fontSize = 12.sp
                         )
                     }
                     
@@ -201,8 +204,10 @@ fun NovaLiteApp(refreshTrigger: Int) {
                             checked = gameMode,
                             onCheckedChange = { gameMode = it },
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color(0xFFFFFFFF),
-                                checkedTrackColor = Color(0xFF00C853)
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF00C853),
+                                uncheckedThumbColor = Color(0xFFBDBDBD),
+                                uncheckedTrackColor = Color(0xFFE0E0E0)
                             )
                         )
                         IconButton(onClick = { 
@@ -212,62 +217,58 @@ fun NovaLiteApp(refreshTrigger: Int) {
                                 Icons.Default.Settings,
                                 "Paramètres",
                                 tint = Color(0xFF616161),
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
                 }
                 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
 
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    placeholder = { Text("Rechercher une application...", color = Color(0xFF9E9E9E)) },
+                    placeholder = { Text("Rechercher...", color = Color(0xFF9E9E9E)) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
+                        .padding(horizontal = 20.dp),
                     singleLine = true,
                     textStyle = androidx.compose.ui.text.TextStyle(
-                        fontSize = 16.sp,
-                        color = Color(0xFF1A1A1A)
+                        fontSize = 15.sp,
+                        color = Color(0xFF121212)
                     ),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.colors(
-                        focusedTextColor = Color(0xFF1A1A1A),
-                        unfocusedTextColor = Color(0xFF1A1A1A),
-                        focusedContainerColor = Color(0xFFFFFFFF),
-                        unfocusedContainerColor = Color(0xFFFFFFFF),
+                        focusedTextColor = Color(0xFF121212),
+                        unfocusedTextColor = Color(0xFF121212),
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
                         focusedIndicatorColor = Color(0xFF00C853),
                         unfocusedIndicatorColor = Color(0xFFE0E0E0),
                         cursorColor = Color(0xFF00C853)
                     ),
-                    leadingIcon = { Text("🔍", fontSize = 16.sp) }
+                    leadingIcon = { Text("🔍", fontSize = 15.sp) }
                 )
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(20.dp))
 
                 if (isLoading && allApps.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(
-                                color = Color(0xFF00C853),
-                                strokeWidth = 3.dp,
-                                modifier = Modifier.size(44.dp)
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            Text("Chargement des applications...", color = Color(0xFF757575))
-                        }
+                        CircularProgressIndicator(
+                            color = Color(0xFF00C853),
+                            strokeWidth = 2.5.dp,
+                            modifier = Modifier.size(36.dp)
+                        )
                     }
                 } else {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(4),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(32.dp),
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(28.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
-                        contentPadding = PaddingValues(bottom = 40.dp)
+                        contentPadding = PaddingValues(bottom = 32.dp)
                     ) {
                         items(filtered.size, key = { filtered[it].pkg }) { i ->
                             val app = filtered[i]
@@ -277,7 +278,7 @@ fun NovaLiteApp(refreshTrigger: Int) {
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.combinedClickable(
                                     onClick = {
-                                        if (gameMode && app.pkg.lowercase().contains("callofduty")) {
+                                        if (gameMode && app.pkg.contains("callofduty", ignoreCase = true)) {
                                             scope.launch(Dispatchers.IO) {
                                                 try {
                                                     val am = ctx.getSystemService(android.app.ActivityManager::class.java)
@@ -290,7 +291,7 @@ fun NovaLiteApp(refreshTrigger: Int) {
                                                     }
                                                 } catch (_: Exception) {}
                                                 withContext(Dispatchers.Main) {
-                                                    android.widget.Toast.makeText(ctx, "🚀 MODE TURBO ACTIF", android.widget.Toast.LENGTH_SHORT).show()
+                                                    android.widget.Toast.makeText(ctx, "🚀 MODE TURBO", android.widget.Toast.LENGTH_SHORT).show()
                                                 }
                                             }
                                         }
@@ -303,35 +304,35 @@ fun NovaLiteApp(refreshTrigger: Int) {
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(78.dp)
-                                        .background(Color(0xFFFFFFFF), RoundedCornerShape(20.dp))
-                                        .border(1.dp, Color(0xFFE8E8E8), RoundedCornerShape(20.dp)),
+                                        .size(64.dp)
+                                        .background(Color.White, RoundedCornerShape(18.dp))
+                                        .border(0.5.dp, Color(0xFFE8E8E8), RoundedCornerShape(18.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (app.icon != null) {
                                         androidx.compose.foundation.Image(
                                             bitmap = app.icon.asImageBitmap(),
                                             contentDescription = app.label,
-                                            modifier = Modifier.size(50.dp),
+                                            modifier = Modifier.size(40.dp),
                                             contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                         )
                                     } else {
                                         Text(
                                             app.label.firstOrNull()?.toString() ?: "?",
                                             color = Color(0xFF00C853),
-                                            fontSize = 22.sp,
+                                            fontSize = 20.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(6.dp))
                                 Text(
                                     app.label,
-                                    fontSize = 13.sp,
-                                    color = Color(0xFF333333),
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF212121),
                                     maxLines = 1,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier.width(86.dp),
+                                    modifier = Modifier.width(76.dp),
                                     fontWeight = FontWeight.Medium
                                 )
                             }
@@ -339,11 +340,9 @@ fun NovaLiteApp(refreshTrigger: Int) {
                             if (showMenu) {
                                 AlertDialog(
                                     onDismissRequest = { showMenu = false },
-                                    containerColor = Color(0xFFFFFFFF),
-                                    titleContentColor = Color(0xFF1A1A1A),
-                                    textContentColor = Color(0xFF333333),
+                                    containerColor = Color.White,
                                     text = {
-                                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                        Column(Modifier.padding(vertical = 0.dp)) {
                                             Box(
                                                 Modifier
                                                     .fillMaxWidth()
@@ -358,9 +357,9 @@ fun NovaLiteApp(refreshTrigger: Int) {
                                                         } catch (_: Exception) {}
                                                         showMenu = false
                                                     }
-                                                    .padding(vertical = 18.dp, horizontal = 8.dp)
+                                                    .padding(vertical = 16.dp)
                                             ) {
-                                                Text("ℹ️ Informations", fontSize = 16.sp)
+                                                Text("ℹ️ Informations", fontSize = 15.sp)
                                             }
                                             Box(
                                                 Modifier
@@ -373,9 +372,9 @@ fun NovaLiteApp(refreshTrigger: Int) {
                                                         } catch (_: Exception) {}
                                                         showMenu = false
                                                     }
-                                                    .padding(vertical = 18.dp, horizontal = 8.dp)
+                                                    .padding(vertical = 16.dp)
                                             ) {
-                                                Text("🗑️ Désinstaller", color = Color(0xFFFF5252), fontSize = 16.sp)
+                                                Text("🗑️ Désinstaller", color = Color(0xFFFF5252), fontSize = 15.sp)
                                             }
                                         }
                                     },

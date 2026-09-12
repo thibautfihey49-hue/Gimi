@@ -11,14 +11,17 @@ android {
         applicationId "com.novalite.launcher"
         minSdk 24
         targetSdk 34
-        versionCode 7
-        versionName "7.0 Ultra Lite"
+        versionCode 9
+        versionName "9.0 ULTIMATE"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         debug {
-            minifyEnabled false
-            shrinkResources false
+            minifyEnabled true
+            shrinkResources true
+            debuggable true
         }
         release {
             minifyEnabled true
@@ -32,24 +35,50 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs += [
+            "-Xopt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-Xno-param-assertions",
+            "-Xno-call-assertions",
+            "-Xno-receiver-assertions"
+        ]
     }
     buildFeatures {
         compose true
         buildConfig false
+        aidl false
+        renderScript false
+        resValues false
+        shaders false
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.10"
     }
     packaging {
         resources {
-            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            excludes += [
+                '/META-INF/{AL2.0,LGPL2.1}',
+                '/META-INF/DEPENDENCIES',
+                '/META-INF/LICENSE*',
+                '/META-INF/NOTICE*',
+                '/*.properties',
+                '/*.txt'
+            ]
+        }
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+    sourceSets {
+        main {
+            jniLibs.srcDirs = []
+            assets.srcDirs = []
+            res.srcDirs = ['src/main/res']
         }
     }
 }
 
 dependencies {
     implementation "androidx.core:core-ktx:1.12.0"
-    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.7.0"
     implementation "androidx.activity:activity-compose:1.8.2"
     implementation "androidx.compose.ui:ui:1.5.4"
     implementation "androidx.compose.material3:material3:1.1.2"

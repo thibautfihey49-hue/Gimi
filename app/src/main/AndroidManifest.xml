@@ -1,12 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
-    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
-    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
-    <queries></queries>
-    <application android:label="Nova Lite" android:icon="@android:mipmap/sym_def_app_icon" android:theme="@android:style/Theme.Black.NoTitleBar" android:hardwareAccelerated="true" android:allowBackup="false">
-        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask" android:screenOrientation="unspecified" android:windowSoftInputMode="adjustNothing" android:configChanges="orientation|screenSize|keyboardHidden">
-            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.HOME"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INSTALL_SHORTCUTS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="Nova Lite"
+        android:supportsRtl="false"
+        android:theme="@style/Theme.Material3.Light.NoActionBar.Fullscreen"
+        android:windowSoftInputMode="adjustNothing"
+        android:hardwareAccelerated="true"
+        android:largeHeap="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:requestLegacyExternalStorage="false"
+        android:usesCleartextTraffic="false"
+        tools:targetApi="34">
+        
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:resumeWhilePausing="true"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout|uiMode"
+            android:windowContentOverlay="@null">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

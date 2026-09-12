@@ -40,14 +40,54 @@ data class AppEntry(
 )
 
 class MainActivity : ComponentActivity() {
+    private lateinit var appReceiver: BroadcastReceiver
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         try {
             window.setWindowAnimations(0)
             super.onCreate(savedInstanceState)
-            setContent { NovaLiteApp() }
+            
+            appReceiver = object : BroadcastReceiver() {
+                override fun onReceive(ctx: Context?, intent: Intent?) {
+                    when (intent?.action) {
+                        Intent.ACTION_PACKAGE_REMOVED,
+                        Intent.ACTION_PACKAGE_ADDED,
+                        Intent.ACTION_PACKAGE_REPLACED -> {
+                            if (intent.data?.schemeSpecificPart != packageName) {
+                                refreshApps()
+                            }
+                        }
+                    }
+                }
+            }
+            
+            registerReceiver(appReceiver, IntentFilter().apply {
+                addAction(Intent.ACTION_PACKAGE_ADDED)
+                addAction(Intent.ACTION_PACKAGE_REMOVED)
+                addAction(Intent.ACTION_PACKAGE_REPLACED)
+                addDataScheme("package")
+            })
+            
+            setContent { NovaLiteApp(::refreshApps) }
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+    
+    private fun refreshApps() {
+        // Notifie le composant de recharger la liste
+        refreshEvent.tryEmit(Unit)
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        try { unregisterReceiver(appReceiver) } catch (_: Exception) {}
+    }
+    
+    companion object {
+        val refreshEvent = kotlinx.coroutines.channels.Channel<Unit>(
+            kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+        )
     }
 }
 
@@ -68,7 +108,7 @@ fun getAppIconSafe(pm: PackageManager, info: ApplicationInfo): Bitmap? {
 }
 
 @Composable
-fun NovaLiteApp() {
+fun NovaLiteApp(onRefresh: () -> Unit) {
     val ctx = LocalContext.current
     val pm = ctx.packageManager
     val scope = rememberCoroutineScope()
@@ -77,14 +117,9 @@ fun NovaLiteApp() {
     var query by remember { mutableStateOf("") }
     var gameMode by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
-    var initialized by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        if (initialized) return@LaunchedEffect
-        initialized = true
-        isLoading = true
-
-        withContext(Dispatchers.IO) {
+    
+    fun loadApps() {
+        scope.launch(Dispatchers.IO) {
             try {
                 val installedPkgs = pm.getInstalledApplications(0)
                 val list = mutableListOf<AppEntry>()
@@ -121,33 +156,47 @@ fun NovaLiteApp() {
         }
     }
 
+    LaunchedEffect(Unit) {
+        loadApps()
+        MainActivity.refreshEvent.receiveAsFlow().collect {
+            isLoading = true
+            loadApps()
+        }
+    }
+
     val filtered = remember(query, allApps) {
         if (query.isBlank()) allApps
         else allApps.filter { it.label.lowercase().contains(query.lowercase()) }
     }
 
-    MaterialTheme(colorScheme = darkColorScheme()) {
+    MaterialTheme(colorScheme = darkColorScheme(
+        background = Color(0xFFF8F9FA),
+        surface = Color(0xFFFFFFFF),
+        onBackground = Color(0xFF1A1A1A),
+        onSurface = Color(0xFF2C2C2C),
+        primary = Color(0xFF00C853)
+    )) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF08080A))
+                .background(Color(0xFFF8F9FA))
         ) {
             Column(Modifier.fillMaxSize()) {
                 
-                Spacer(Modifier.height(36.dp))
+                Spacer(Modifier.height(48.dp))
                 
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
+                        .padding(horizontal = 24.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
                         Text(
                             "Nova Lite",
-                            color = Color.White,
-                            fontSize = 22.sp,
+                            color = Color(0xFF1A1A1A),
+                            fontSize = 26.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
@@ -156,15 +205,19 @@ fun NovaLiteApp() {
                                 gameMode -> "🎮 Mode jeu actif"
                                 else -> "${allApps.size} applications"
                             },
-                            color = Color(0xFF707070),
-                            fontSize = 12.sp
+                            color = Color(0xFF757575),
+                            fontSize = 13.sp
                         )
                     }
                     
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(
                             checked = gameMode,
-                            onCheckedChange = { gameMode = it }
+                            onCheckedChange = { gameMode = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFFFFFFFF),
+                                checkedTrackColor = Color(0xFF00C853)
+                            )
                         )
                         IconButton(onClick = { 
                             ctx.startActivity(Intent(Settings.ACTION_SETTINGS))
@@ -172,52 +225,52 @@ fun NovaLiteApp() {
                             Icon(
                                 Icons.Default.Settings,
                                 "Paramètres",
-                                tint = Color(0xFF707071),
-                                modifier = Modifier.size(22.dp)
+                                tint = Color(0xFF616161),
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                 }
                 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(20.dp))
 
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    placeholder = { Text("Rechercher une application...", color = Color(0xFF505050)) },
+                    placeholder = { Text("Rechercher une application...", color = Color(0xFF9E9E9E)) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
+                        .padding(horizontal = 24.dp),
                     singleLine = true,
                     textStyle = androidx.compose.ui.text.TextStyle(
-                        fontSize = 15.sp,
-                        color = Color.White
+                        fontSize = 16.sp,
+                        color = Color(0xFF1A1A1A)
                     ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = TextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedContainerColor = Color(0xFF141417),
-                        unfocusedContainerColor = Color(0xFF141417),
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = Color(0xFF00E570)
+                        focusedTextColor = Color(0xFF1A1A1A),
+                        unfocusedTextColor = Color(0xFF1A1A1A),
+                        focusedContainerColor = Color(0xFFFFFFFF),
+                        unfocusedContainerColor = Color(0xFFFFFFFF),
+                        focusedIndicatorColor = Color(0xFF00C853),
+                        unfocusedIndicatorColor = Color(0xFFE0E0E0),
+                        cursorColor = Color(0xFF00C853)
                     ),
                     leadingIcon = { Text("🔍", fontSize = 16.sp) }
                 )
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(24.dp))
 
                 if (isLoading && allApps.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(
-                                color = Color(0xFF00E570),
+                                color = Color(0xFF00C853),
                                 strokeWidth = 3.dp,
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(44.dp)
                             )
                             Spacer(Modifier.height(16.dp))
-                            Text("Chargement des applications...", color = Color(0xFF707070))
+                            Text("Chargement des applications...", color = Color(0xFF757575))
                         }
                     }
                 } else {
@@ -225,10 +278,10 @@ fun NovaLiteApp() {
                         columns = GridCells.Fixed(4),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(28.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 32.dp)
+                            .padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(32.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        contentPadding = PaddingValues(bottom = 40.dp)
                     ) {
                         items(filtered.size, key = { filtered[it].pkg }) { i ->
                             val app = filtered[i]
@@ -264,42 +317,47 @@ fun NovaLiteApp() {
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(72.dp)
-                                        .background(Color(0xFF1A1A1F), RoundedCornerShape(18.dp)),
+                                        .size(78.dp)
+                                        .background(Color(0xFFFFFFFF), RoundedCornerShape(20.dp))
+                                        .border(1.dp, Color(0xFFE8E8E8), RoundedCornerShape(20.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (app.icon != null) {
                                         androidx.compose.foundation.Image(
                                             bitmap = app.icon.asImageBitmap(),
                                             contentDescription = app.label,
-                                            modifier = Modifier.size(48.dp),
+                                            modifier = Modifier.size(50.dp),
                                             contentScale = androidx.compose.ui.layout.ContentScale.Fit
                                         )
                                     } else {
                                         Text(
                                             app.label.firstOrNull()?.toString() ?: "?",
-                                            color = Color.White,
-                                            fontSize = 20.sp,
-                                            fontWeight = FontWeight.Medium
+                                            color = Color(0xFF00C853),
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(10.dp))
                                 Text(
                                     app.label,
-                                    fontSize = 12.sp,
-                                    color = Color(0xFFD0D0D5),
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF333333),
                                     maxLines = 1,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier.width(80.dp)
+                                    modifier = Modifier.width(86.dp),
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
 
                             if (showMenu) {
                                 AlertDialog(
                                     onDismissRequest = { showMenu = false },
+                                    containerColor = Color(0xFFFFFFFF),
+                                    titleContentColor = Color(0xFF1A1A1A),
+                                    textContentColor = Color(0xFF333333),
                                     text = {
-                                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
                                             Box(
                                                 Modifier
                                                     .fillMaxWidth()
@@ -314,9 +372,9 @@ fun NovaLiteApp() {
                                                         } catch (_: Exception) {}
                                                         showMenu = false
                                                     }
-                                                    .padding(vertical = 16.dp, horizontal = 8.dp)
+                                                    .padding(vertical = 18.dp, horizontal = 8.dp)
                                             ) {
-                                                Text("ℹ️ Informations de l'application", color = Color.White, fontSize = 16.sp)
+                                                Text("ℹ️ Informations", fontSize = 16.sp)
                                             }
                                             Box(
                                                 Modifier
@@ -329,15 +387,15 @@ fun NovaLiteApp() {
                                                         } catch (_: Exception) {}
                                                         showMenu = false
                                                     }
-                                                    .padding(vertical = 16.dp, horizontal = 8.dp)
+                                                    .padding(vertical = 18.dp, horizontal = 8.dp)
                                             ) {
-                                                Text("🗑️ Désinstaller l'application", color = Color(0xFFFF5555), fontSize = 16.sp)
+                                                Text("🗑️ Désinstaller", color = Color(0xFFFF5252), fontSize = 16.sp)
                                             }
                                         }
                                     },
                                     confirmButton = {
                                         TextButton(onClick = { showMenu = false }) {
-                                            Text("Fermer", color = Color(0xFF00E570))
+                                            Text("Fermer", color = Color(0xFF00C853))
                                         }
                                     }
                                 )

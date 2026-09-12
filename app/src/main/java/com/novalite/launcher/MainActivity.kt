@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -164,8 +165,7 @@ fun NovaLiteApp() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(
                             checked = gameMode,
-                            onCheckedChange = { gameMode = it },
-                            modifier = Modifier.scale(0.85f)
+                            onCheckedChange = { gameMode = it }
                         )
                         IconButton(onClick = { 
                             ctx.startActivity(Intent(Settings.ACTION_SETTINGS))
@@ -234,13 +234,14 @@ fun NovaLiteApp() {
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.combinedClickable(
                                     onClick = {
-                                        if (gameMode && app.pkg.contains("callofduty", ignoreCase = true)) {
+                                        if (gameMode && app.pkg.lowercase().contains("callofduty")) {
                                             scope.launch(Dispatchers.IO) {
                                                 try {
                                                     val am = ctx.getSystemService(android.app.ActivityManager::class.java)
+                                                    val myPkg = ctx.packageName
                                                     am.runningAppProcesses?.forEach { p ->
                                                         val pkg = p.processName
-                                                        if (!pkg.startsWith("android") && !pkg.startsWith(ctx.packageName)) {
+                                                        if (pkg != myPkg && !pkg.startsWith("android") && !pkg.startsWith("com.android")) {
                                                             try { am.killBackgroundProcesses(pkg) } catch (_: Exception) {}
                                                         }
                                                     }

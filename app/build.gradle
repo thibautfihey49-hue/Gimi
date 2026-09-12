@@ -11,10 +11,8 @@ android {
         applicationId "com.novalite.launcher"
         minSdk 24
         targetSdk 34
-        versionCode 9
-        versionName "9.0 ULTIMATE"
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        versionCode 10
+        versionName "10.0 FINAL"
     }
 
     buildTypes {
@@ -36,7 +34,7 @@ android {
     kotlinOptions {
         jvmTarget = "17"
         freeCompilerArgs += [
-            "-Xopt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
             "-Xno-param-assertions",
             "-Xno-call-assertions",
             "-Xno-receiver-assertions"
@@ -59,20 +57,8 @@ android {
                 '/META-INF/{AL2.0,LGPL2.1}',
                 '/META-INF/DEPENDENCIES',
                 '/META-INF/LICENSE*',
-                '/META-INF/NOTICE*',
-                '/*.properties',
-                '/*.txt'
+                '/META-INF/NOTICE*'
             ]
-        }
-        jniLibs {
-            useLegacyPackaging = false
-        }
-    }
-    sourceSets {
-        main {
-            jniLibs.srcDirs = []
-            assets.srcDirs = []
-            res.srcDirs = ['src/main/res']
         }
     }
 }

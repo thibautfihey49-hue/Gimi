@@ -80,8 +80,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-inline fun <T> fastLet(flag: Boolean, block: () -> T): T? = if (flag) block() else null
-
 fun getAppIconSafe(pm: PackageManager, info: ApplicationInfo): Bitmap? {
     return try {
         val drawable = pm.getApplicationIcon(info) ?: return null
@@ -99,7 +97,7 @@ fun getAppIconSafe(pm: PackageManager, info: ApplicationInfo): Bitmap? {
 }
 
 @Composable
-inline fun NovaLiteApp(refreshTrigger: Int) {
+fun NovaLiteApp(refreshTrigger: Int) {
     val ctx = LocalContext.current
     val pm = ctx.packageManager
     val scope = rememberCoroutineScope()
